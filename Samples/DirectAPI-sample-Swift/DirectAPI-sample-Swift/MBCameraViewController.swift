@@ -11,12 +11,21 @@ import AVFoundation
 import MicroBlink
 
 class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBufferDelegate, AVCaptureVideoDataOutputSampleBufferDelegate, MBScanningRecognizerRunnerDelegate {
-    
+    var reconfigure: Bool = true
+
     @IBOutlet var cameraPausedLabel: UILabel!
-    
+    @IBOutlet weak var faceStatus: UIButton!
+    @IBOutlet weak var mrzStatus: UIButton!
+
     var captureSession: AVCaptureSession?
     var recognizerRunner: MBRecognizerRunner?
     var pdf417Recognizer: MBPdf417Recognizer?
+
+    var frameGrabber: MBFrameGrabberRecognizer!
+    var mrzRecognizer: MBMrtdRecognizer!
+    var faceRecognizer: MBDocumentFaceRecognizer!
+    var capture = false
+
     var isPauseRecognition = false
     
     @IBOutlet weak var myView: UIView!
@@ -121,6 +130,7 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
     }
     
     func startCaptureSession() {
+        debugPrint("Reconfigure: \(reconfigure)")
         // Create session
         captureSession = AVCaptureSession()
         captureSession?.sessionPreset = .high
@@ -143,11 +153,19 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
         prevLayer?.connection?.videoOrientation = transformOrientation(orientation: UIInterfaceOrientation(rawValue: UIApplication.shared.statusBarOrientation.rawValue)!)
         
         myView.layer.addSublayer(prevLayer!)
-        
-        var recognizers = [MBRecognizer]()
-        pdf417Recognizer = MBPdf417Recognizer()
-        recognizers.append(pdf417Recognizer!)
-        
+
+        frameGrabber = MBFrameGrabberRecognizer(frameGrabberDelegate: self)
+        faceRecognizer = MBDocumentFaceRecognizer()
+        mrzRecognizer = MBMrtdRecognizer()
+
+        let recognizers: [MBRecognizer] = [
+            frameGrabber,
+            faceRecognizer,
+            mrzRecognizer
+        ]
+//        pdf417Recognizer = MBPdf417Recognizer()
+//        recognizers.append(pdf417Recognizer!)
+
         let recognizerCollection = MBRecognizerCollection(recognizers: recognizers)
         recognizerRunner = MBRecognizerRunner(recognizerCollection: recognizerCollection)
         recognizerRunner?.scanningRecognizerRunnerDelegate = self
@@ -183,21 +201,37 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
     }
     
     func recognizerRunner(_ recognizerRunner: MBRecognizerRunner, didFinishScanningWith state: MBRecognizerResultState) {
-        isPauseRecognition = true
-        if state == MBRecognizerResultState.valid {
-            DispatchQueue.main.async(execute: {() -> Void in
-                let title = "PDF417"
-                // Save the string representation of the code
-                let message = self.pdf417Recognizer?.result.stringData!
-                let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-                let okAction = UIAlertAction(title: "OK", style: .default, handler: {(_ action: UIAlertAction) -> Void in
-                    self.dismiss(animated: true) {() -> Void in }
-                })
-                alertController.addAction(okAction)
-                self.present(alertController, animated: true) {() -> Void in }
-            })
+        let face = faceRecognizer.result.resultState == .valid
+        let mrz = mrzRecognizer.result.resultState == .valid
+
+        debugPrint("FACE: \(face), MRZ \(mrz)")
+        if reconfigure {
+            if mrz {
+                recognizerRunner.reconfigureRecognizers(MBRecognizerCollection(recognizers: [faceRecognizer]))
+            }
+            if face {
+                recognizerRunner.reconfigureRecognizers(MBRecognizerCollection(recognizers: [mrzRecognizer]))
+            }
+        }
+
+        if face, mrz {
+            debugPrint("BOTH VALID!!!")
+            capture = true
+            isPauseRecognition = true
+        } else if face {
+            debugPrint("MRZ NOT FOUND!!!")
+            reconfigure ? recognizerRunner.resetState(true) : recognizerRunner.resetState()
+        } else if mrz {
+            debugPrint("FACE NOT FOUND!!!")
+            reconfigure ? recognizerRunner.resetState(true) : recognizerRunner.resetState()
         } else {
-            isPauseRecognition = false
+            debugPrint("NOTHING FOUND!!!")
+            reconfigure ? recognizerRunner.resetState(true) : recognizerRunner.resetState()
+        }
+
+        DispatchQueue.main.async {
+            self.faceStatus.isHighlighted = !face
+            self.mrzStatus.isHighlighted = !mrz
         }
     }
     
@@ -213,7 +247,28 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
             return .portrait
         }
     }
+}
 
+extension MBCameraViewController: MBFrameGrabberRecognizerDelegate {
+    public func onFrameAvailable(_ cameraFrame: MBImage, isFocused focused: Bool, frameQuality: CGFloat) {
+        guard capture else {
+            return
+        }
+        capture = false
+        debugPrint("Grabbing image!")
+
+        DispatchQueue.main.async {
+            let title = "SUCCESS"
+            // Save the string representation of the code
+            let message = "Face and mrz found: \(cameraFrame.image.size)"
+            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "OK", style: .default, handler: {(_ action: UIAlertAction) -> Void in
+                self.dismiss(animated: true) {() -> Void in }
+            })
+            alertController.addAction(okAction)
+            self.present(alertController, animated: true) {() -> Void in }
+        }
+    }
 }
 
 extension UIDeviceOrientation {
