@@ -90,6 +90,14 @@ let info = convertFromUIImagePickerControllerInfoKeyDictionary(info)
             self.present(alertController, animated: true) {() -> Void in }
         })
     }
+
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if segue.identifier == "Reconfigure" {
+            (segue.destination as? MBCameraViewController)?.reconfigure = true
+        } else if segue.identifier == "NoReconfigure" {
+            (segue.destination as? MBCameraViewController)?.reconfigure = false
+        }
+    }
 }
 
 

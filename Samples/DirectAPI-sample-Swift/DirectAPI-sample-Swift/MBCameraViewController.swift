@@ -11,19 +11,29 @@ import AVFoundation
 import MicroBlink
 
 class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBufferDelegate, AVCaptureVideoDataOutputSampleBufferDelegate, MBScanningRecognizerRunnerDelegate {
-    
+    var reconfigure: Bool = true
+
     @IBOutlet var cameraPausedLabel: UILabel!
+    @IBOutlet weak var faceStatus: UIButton!
+    @IBOutlet weak var mrzStatus: UIButton!
+    @IBOutlet weak var closeButton: UIButton!
+    @IBOutlet weak var sizeLabel: UILabel!
     
     var captureSession: AVCaptureSession?
     var recognizerRunner: MBRecognizerRunner?
-    var pdf417Recognizer: MBPdf417Recognizer?
+
+    var mrzRecognizer: MBMrtdRecognizer!
+    var faceRecognizer: MBDocumentFaceRecognizer!
+    var capture = false
+
     var isPauseRecognition = false
     
     @IBOutlet weak var myView: UIView!
-    
-    var session: AVCaptureSession?
+
     var device: AVCaptureDevice?
     var input: AVCaptureDeviceInput?
+    var video: AVCaptureVideoDataOutput?
+    var image: AVCaptureStillImageOutput?
     var output: AVCaptureMetadataOutput?
     var prevLayer: AVCaptureVideoPreviewLayer?
     
@@ -121,9 +131,10 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
     }
     
     func startCaptureSession() {
+        debugPrint("Reconfigure: \(reconfigure)")
         // Create session
         captureSession = AVCaptureSession()
-        captureSession?.sessionPreset = .high
+        captureSession?.sessionPreset = .photo
         // Init the device inputs
         let videoInput = try? AVCaptureDeviceInput(device: cameraWithPosition(AVCaptureDevice.Position.back)!)
         if let anInput = videoInput {
@@ -133,6 +144,13 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
         let videoDataOutput = AVCaptureVideoDataOutput()
         videoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey : kCVPixelFormatType_32BGRA] as [String : Any]
         captureSession?.addOutput(videoDataOutput)
+        video = videoDataOutput
+
+        // MARK: - Add Additional Output to capture still images
+        let imageOutput = AVCaptureStillImageOutput() // deprecated in iOS 10.0, we still support iOS 9.0
+        captureSession?.addOutput(imageOutput)
+        image = imageOutput
+
         let queue = DispatchQueue(label: "myQueue")
         videoDataOutput.setSampleBufferDelegate(self, queue: queue)
         
@@ -143,11 +161,15 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
         prevLayer?.connection?.videoOrientation = transformOrientation(orientation: UIInterfaceOrientation(rawValue: UIApplication.shared.statusBarOrientation.rawValue)!)
         
         myView.layer.addSublayer(prevLayer!)
-        
-        var recognizers = [MBRecognizer]()
-        pdf417Recognizer = MBPdf417Recognizer()
-        recognizers.append(pdf417Recognizer!)
-        
+
+        faceRecognizer = MBDocumentFaceRecognizer()
+        mrzRecognizer = MBMrtdRecognizer()
+
+        let recognizers: [MBRecognizer] = [
+            faceRecognizer,
+            mrzRecognizer
+        ]
+
         let recognizerCollection = MBRecognizerCollection(recognizers: recognizers)
         recognizerRunner = MBRecognizerRunner(recognizerCollection: recognizerCollection)
         recognizerRunner?.scanningRecognizerRunnerDelegate = self
@@ -181,24 +203,74 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
             recognizerRunner?.processImage(image)
         }
     }
-    
+
+    @IBAction func simulateFaceWasFound() {
+        faceWasFound = true
+    }
+
+    var faceWasFound = false
+    var mrzWasFound = false
+
     func recognizerRunner(_ recognizerRunner: MBRecognizerRunner, didFinishScanningWith state: MBRecognizerResultState) {
-        isPauseRecognition = true
-        if state == MBRecognizerResultState.valid {
-            DispatchQueue.main.async(execute: {() -> Void in
-                let title = "PDF417"
-                // Save the string representation of the code
-                let message = self.pdf417Recognizer?.result.stringData!
-                let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-                let okAction = UIAlertAction(title: "OK", style: .default, handler: {(_ action: UIAlertAction) -> Void in
-                    self.dismiss(animated: true) {() -> Void in }
-                })
-                alertController.addAction(okAction)
-                self.present(alertController, animated: true) {() -> Void in }
-            })
-        } else {
-            isPauseRecognition = false
+        let mrz = mrzRecognizer.result.resultState == .valid
+        let face = faceRecognizer.result.resultState == .valid // That is never true, face never is found in 4.0.3
+
+
+        if mrz {
+            mrzWasFound = true
+            recognizerRunner.reconfigureRecognizers(MBRecognizerCollection(recognizers: [faceRecognizer]))
         }
+        if face {
+            faceWasFound = true
+            recognizerRunner.reconfigureRecognizers(MBRecognizerCollection(recognizers: [mrzRecognizer]))
+        }
+
+        if mrzWasFound, faceWasFound {
+            // Take manual photo to assure highest quality possible
+            takePhoto()
+            mrzWasFound = false
+            faceWasFound = false
+        } else {
+            recognizerRunner.resetState(true)
+        }
+
+        DispatchQueue.main.async {
+            self.faceStatus.isHighlighted = !self.faceWasFound
+            self.mrzStatus.isHighlighted = !self.mrzWasFound
+        }
+    }
+
+    // MARK: - Important!!!
+    /// This is something we could do only with using direct api now. One of the possible solutions to providing us the images big enough, is to
+    /// expose this "takePhoto" thing within SDK, to be able to use it with using DocumentOverlayViewControllers provided by Microblink.
+    public func takePhoto() {
+        guard let image = self.image else { return }
+        guard let videoConnection = image.connection(with: AVMediaType.video) else {
+            return
+        }
+        guard !image.isCapturingStillImage else { return }
+
+        image.captureStillImageAsynchronously(from: videoConnection) { [weak self] sampleBuffer, error in
+            guard sampleBuffer != nil, error == nil else { return }
+            guard let imageData = AVCaptureStillImageOutput.jpegStillImageNSDataRepresentation(sampleBuffer!) else { return }
+            guard let image = UIImage(data: imageData) else { return }
+
+            DispatchQueue.main.async {
+                self?.presentCaptured(image)
+            }
+        }
+    }
+
+    func presentCaptured(_ image: UIImage) {
+        self.sizeLabel.text = "Image size: \(image.size)"
+        let imageView = UIImageView(image: image)
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFit
+        view.insertSubview(imageView, belowSubview: closeButton)
+        imageView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
+        imageView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+        imageView.leftAnchor.constraint(equalTo: view.leftAnchor).isActive = true
+        imageView.rightAnchor.constraint(equalTo: view.rightAnchor).isActive = true
     }
     
     func transformOrientation(orientation: UIInterfaceOrientation) -> AVCaptureVideoOrientation {
@@ -213,7 +285,6 @@ class MBCameraViewController: UIViewController, AVCaptureAudioDataOutputSampleBu
             return .portrait
         }
     }
-
 }
 
 extension UIDeviceOrientation {
