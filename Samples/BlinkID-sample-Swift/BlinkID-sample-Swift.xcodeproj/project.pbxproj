@@ -24,6 +24,8 @@
 		A2351A2A1EDF002000C1271E /* MicroBlink.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 315532241D94241C001B9440 /* MicroBlink.framework */; };
 		A2351A2B1EDF002000C1271E /* MicroBlink.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 315532241D94241C001B9440 /* MicroBlink.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A254B51F2174D17A00E720C4 /* blinkid-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = A254B51E2174D17A00E720C4 /* blinkid-license.txt */; };
+		C849E3A32199A64300ED332D /* AVCaptureSession+InitSwizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = C849E3A22199A64300ED332D /* AVCaptureSession+InitSwizzle.m */; };
+		C8D7392321930A7600BAE36F /* CGSize+MPx.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8D7392221930A7600BAE36F /* CGSize+MPx.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -59,6 +61,10 @@
 		315532231D94241C001B9440 /* MicroBlink.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; name = MicroBlink.bundle; path = ../../MicroBlink.bundle; sourceTree = "<group>"; };
 		315532241D94241C001B9440 /* MicroBlink.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MicroBlink.framework; path = ../../MicroBlink.framework; sourceTree = "<group>"; };
 		A254B51E2174D17A00E720C4 /* blinkid-license.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "blinkid-license.txt"; sourceTree = "<group>"; };
+		C849E39D2199A4FB00ED332D /* BlinkID-sample-Swift-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "BlinkID-sample-Swift-Bridging-Header.h"; sourceTree = "<group>"; };
+		C849E3A12199A64300ED332D /* AVCaptureSession+InitSwizzle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "AVCaptureSession+InitSwizzle.h"; sourceTree = "<group>"; };
+		C849E3A22199A64300ED332D /* AVCaptureSession+InitSwizzle.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "AVCaptureSession+InitSwizzle.m"; sourceTree = "<group>"; };
+		C8D7392221930A7600BAE36F /* CGSize+MPx.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGSize+MPx.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,11 +109,15 @@
 			children = (
 				B466BA2420F4E587003108A7 /* License */,
 				3139C8941C294F2C005AC32C /* AppDelegate.swift */,
+				C849E3A12199A64300ED332D /* AVCaptureSession+InitSwizzle.h */,
+				C849E3A22199A64300ED332D /* AVCaptureSession+InitSwizzle.m */,
 				3155321D1D9418DA001B9440 /* ViewController.swift */,
+				C8D7392221930A7600BAE36F /* CGSize+MPx.swift */,
 				3139C8981C294F2C005AC32C /* Main.storyboard */,
 				3139C89B1C294F2C005AC32C /* Assets.xcassets */,
 				3139C89D1C294F2C005AC32C /* LaunchScreen.storyboard */,
 				3139C8A01C294F2C005AC32C /* Info.plist */,
+				C849E39D2199A4FB00ED332D /* BlinkID-sample-Swift-Bridging-Header.h */,
 			);
 			path = "BlinkID-sample-Swift";
 			sourceTree = "<group>";
@@ -170,8 +180,8 @@
 				TargetAttributes = {
 					3139C8901C294F2C005AC32C = {
 						CreatedOnToolsVersion = 7.2;
-						DevelopmentTeam = CQTJWP89J7;
-						LastSwiftMigration = 0900;
+						DevelopmentTeam = UMW8VNS5XT;
+						LastSwiftMigration = 1010;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -216,6 +226,8 @@
 			files = (
 				3155321E1D9418DA001B9440 /* ViewController.swift in Sources */,
 				3139C8951C294F2C005AC32C /* AppDelegate.swift in Sources */,
+				C849E3A32199A64300ED332D /* AVCaptureSession+InitSwizzle.m in Sources */,
+				C8D7392321930A7600BAE36F /* CGSize+MPx.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -353,14 +365,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				DEVELOPMENT_TEAM = CQTJWP89J7;
+				DEVELOPMENT_TEAM = UMW8VNS5XT;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = "BlinkID-sample-Swift/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.microblink.blinkid-sample";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "BlinkID-sample-Swift/BlinkID-sample-Swift-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.0;
 			};
@@ -370,14 +385,16 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				DEVELOPMENT_TEAM = CQTJWP89J7;
+				DEVELOPMENT_TEAM = UMW8VNS5XT;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = "BlinkID-sample-Swift/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.microblink.blinkid-sample";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "BlinkID-sample-Swift/BlinkID-sample-Swift-Bridging-Header.h";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.0;
 			};
